@@ -1,61 +1,58 @@
 #PART 1 - Extracting Data
-#Below code will extract the CSV file from the data.gov for further processing. 
-# The  here package is used solve file path problems the replicator will face during replicaiton by creating relative paths to projects top directory.
+#Below code will extract the CSV file from the so0urce for further processing. 
+# The  here package is used solve file path problems the replicator will face during replication by creating relative paths to projects top directory.
 
 
 # Load here package for dynamic path management
 install.packages("here")
+install.packages("googlesheets4")
+library(googlesheets4)
 library(here)
+library(readr)
 
 
 # Create Project/Raw Data directory structure dynamically
 raw_data_path <- here("Project", "Raw Data")
 if(!dir.exists(raw_data_path)) dir.create(raw_data_path, recursive = TRUE)
 
-# Download WARN dataset to dynamic path
-download.file("https://data.oregon.gov/api/views/ijbz-jpx8/rows.csv?accessType=DOWNLOAD",
-              destfile = file.path(raw_data_path, "warn.csv"),
-              method = "auto")
+# Please note, the file download procedure is segregated to two steps as the layoff database contains 2025 lays off in a seperate file and prior data in a different file. 
 
-#PART 2 - Filtering the Raw data to get rid of temporary layoffs, permanent closures,small layoffs and blanks
-# Output of this section ,after filtering, will be saved in the processed data folder.
-# output file will only contain workforce reductions, large layoffs and small layoffs.
 
-install.packages("dplyr")
-install.packages("readr")
-library(dplyr)
-library(readr)
+# --- Download the first dataset --- 
+# The URL of the public Google Sheet.
+sheet_url <- "https://docs.google.com/spreadsheets/d/1ayO8dl7sXaIYBAwkBGRUjbDms6MAbZFvvxxRp8IyxvY/edit?gid=1731412249#gid=1731412249"
 
-# Define the path for the raw data directory
-raw_data_path <- here("Project", "Raw Data")
+# De-authorize to handle public sheet access without needing a Google login.
+gs4_deauth()
 
-# Define the full path for the raw CSV file
-raw_file <- file.path(raw_data_path, "warn.csv")
+# Read the data directly from the Google Sheet.
+warn_data <- read_sheet(sheet_url, col_types = "c")
 
-#Read the downloaded CSV into a data frame
-warn_data <- read_csv(raw_file, show_col_types = FALSE)
-
-# Define the categories to filter out from the 'Layoff Type' column
-categories_to_exclude <- c(
-  "Temporary Layoff",
-  "Permanent closure",
-  "Small Layoff - 1 to 10 workers",
-  "Other"
-)
-
-# Filter the data to remove specified categories and blank entries
-processed_data <- warn_data %>%
-  filter(
-    !is.na(`Layoff Type`),
-    !(`Layoff Type` %in% categories_to_exclude)
-  )
+# Write the downloaded data to a CSV file in the designated path.
+write_csv(warn_data, here(raw_data_path, "warn.csv"))
 
 
 
-# Define the path for the processed data directory and output file
-processed_data_path <- here("Project", "Processed Data")
-processed_file <- file.path(processed_data_path, "Processed-warn.csv")
+# --- Download the second dataset ---
 
-# Save the filtered data frame to the new CSV file
-write_csv(processed_data, processed_file)
+# The URL of the second public Google Sheet.
+sheet_url_2 <- "https://docs.google.com/spreadsheets/d/1Qx6lv3zAL9YTsKJQNALa2GqBLXq0RER2lHvzyx32pRs/edit?gid=0#gid=0"
+
+# Read the data directly from the second Google Sheet, also as character types.
+additional_warn_data <- read_sheet(sheet_url_2, col_types = "c")
+
+# Write the second downloaded data to a new CSV file.
+write_csv(additional_warn_data, here(raw_data_path, "warn_additional.csv"))
+
+
+# --- Combine and save the datasets ---
+
+# Combine the two data frames by stacking them vertically.
+# bind_rows() from dplyr is used as it safely handles columns that may not match.
+combined_warn_data <- bind_rows(warn_data, additional_warn_data)
+
+# Write the combined data to a new CSV file.
+write_csv(combined_warn_data, here(raw_data_path, "warn_combined.csv"))
+
+
 
