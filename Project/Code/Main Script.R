@@ -8,13 +8,9 @@ wrds <- dbConnect(Postgres(),
 
 install.packages(c("stringdist", "fuzzyjoin"))
 
-library(tidyverse)
-library(readxl)
-library(RPostgres) 
-library(dbplyr) 
-library(fuzzyjoin)
-library(stringdist)
 
+----------------------------------
+  
 
 -------------------------------
 # 1ST STEP -The intention of the below step is to clean both compustat extracts and layoff database company names before initiating fuzzy matching.
