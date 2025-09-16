@@ -63,3 +63,10 @@ final_dataset_cleaned <- final_analysis_dataset %>%
     CAR_5_Day_Window,
     CAR_10_Day_Window
   )
+
+# Saving the final output file
+output_folder <- here("Project", "Output")
+dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
+output_file_path <- file.path(output_folder, "Final_Cleaned_Dataset.csv")
+write.csv(final_dataset_cleaned, output_file_path, row.names = FALSE)
+
