@@ -215,46 +215,201 @@ car_summary <- bind_rows(car_1day_breakdown, car_3day_breakdown, car_5day_breakd
 print(car_summary)
 
 #==============================================================================
-# Table 3- Create industry wise summary tables
+# Table 3- Create industry wise RD Intensity
 #=============================================================================
+# Load required libraries
 library(dplyr)
-library(RPostgres)  # if using WRDS connection
-industry_by_gvkey <- tbl(wrds, sql("
-  SELECT gvkey, sich, naicsh, datadate
-  FROM comp.co_industry
-  WHERE consol = 'C' AND popsrc = 'D'
-    AND datadate >= '2015-01-01'
-")) %>%
-  collect() %>%
-  group_by(gvkey) %>%
-  arrange(desc(datadate)) %>%
-  slice(1) %>%
-  ungroup()
+library(tidyr)
 
-# Join industry classification to your main dataset
-final_dataset_with_industry <- final_dataset_cleaned %>%
-  left_join(industry_by_gvkey, by = "gvkey")
-final_dataset_with_industry <- final_dataset_with_industry %>%
-  mutate(
-    sic_2digit = as.numeric(substr(as.character(sich), 1, 2)),
-    industry_name = case_when(
-      sic_2digit >= 1 & sic_2digit <= 9 ~ "Agriculture, Forestry, Fishing",
-      sic_2digit >= 10 & sic_2digit <= 14 ~ "Mining",
-      sic_2digit >= 15 & sic_2digit <= 17 ~ "Construction", 
-      sic_2digit >= 20 & sic_2digit <= 39 ~ "Manufacturing",
-      sic_2digit >= 40 & sic_2digit <= 49 ~ "Transportation & Utilities",
-      sic_2digit >= 50 & sic_2digit <= 51 ~ "Wholesale Trade",
-      sic_2digit >= 52 & sic_2digit <= 59 ~ "Retail Trade",
-      sic_2digit >= 60 & sic_2digit <= 67 ~ "Finance & Insurance",
-      sic_2digit >= 70 & sic_2digit <= 89 ~ "Services",
-      sic_2digit >= 91 & sic_2digit <= 99 ~ "Public Administration",
-      TRUE ~ "Other/Unknown"
-    )
-  )
-# Count observations by industry
-industry_counts <- final_dataset_with_industry %>%
+# Define mode function
+mode_func <- function(x, na.rm = TRUE) {
+  if (na.rm) x <- x[!is.na(x)]
+  if (length(x) == 0) return(NA)
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# Calculate total firms for percentage calculation
+total_firms <- final_dataset_with_industry %>%
+  filter(!is.na(industry_name)) %>%
+  nrow()
+
+# Industry summary with percentage only for N column
+industry_summary_final <- final_dataset_with_industry %>%
+  filter(!is.na(industry_name)) %>%
   group_by(industry_name) %>%
-  summarise(N = n()) %>%
+  summarise(
+    N = sum(!is.na(rd_intensity_1yr)),
+    Mean = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
+                  mean(rd_intensity_1yr, na.rm = TRUE), NA),
+    Mode = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
+                  mode_func(rd_intensity_1yr, na.rm = TRUE), NA),
+    Std_Dev = ifelse(sum(!is.na(rd_intensity_1yr)) > 1, 
+                     sd(rd_intensity_1yr, na.rm = TRUE), NA),
+    Min = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
+                 min(rd_intensity_1yr, na.rm = TRUE), NA),
+    Max = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
+                 max(rd_intensity_1yr, na.rm = TRUE), NA),
+    .groups = 'drop'
+  ) %>%
+  # Add percentage column for N only and round statistics to 3 decimal places
+  mutate(
+    N_Pct = round((N / total_firms) * 100, 3),
+    Mean = round(Mean, 3),
+    Mode = round(Mode, 3),
+    Std_Dev = round(Std_Dev, 3),
+    Min = round(Min, 3),
+    Max = round(Max, 3)
+  ) %>%
+  # Reorder columns: N, N_Pct, then statistics
+  select(industry_name, N, N_Pct, Mean, Mode, Std_Dev, Min, Max) %>%
   arrange(desc(N))
 
-print(industry_counts)
+print(industry_summary_final)
+
+
+
+# Calculate total firms for percentage calculation
+total_car_firms <- final_dataset_cleaned %>%
+  filter(!is.na(CAR_1_Day_Window)) %>%
+  nrow()
+
+# 1-Day CAR Breakdown
+car_1day_breakdown <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_1yr), !is.na(CAR_1_Day_Window)) %>%
+  group_by(rd_group_1yr) %>%
+  summarise(
+    N = sum(!is.na(CAR_1_Day_Window)),
+    Mean = mean(CAR_1_Day_Window, na.rm = TRUE),
+    Mode = mode_func(CAR_1_Day_Window, na.rm = TRUE),
+    Std_Dev = sd(CAR_1_Day_Window, na.rm = TRUE),
+    Min = min(CAR_1_Day_Window, na.rm = TRUE),
+    Max = max(CAR_1_Day_Window, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  mutate(CAR_Window = "1-Day CAR") %>%
+  rename(RD_Group = rd_group_1yr)
+
+# 3-Day CAR Breakdown
+car_3day_breakdown <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_1yr), !is.na(CAR_3_Day_Window)) %>%
+  group_by(rd_group_1yr) %>%
+  summarise(
+    N = sum(!is.na(CAR_3_Day_Window)),
+    Mean = mean(CAR_3_Day_Window, na.rm = TRUE),
+    Mode = mode_func(CAR_3_Day_Window, na.rm = TRUE),
+    Std_Dev = sd(CAR_3_Day_Window, na.rm = TRUE),
+    Min = min(CAR_3_Day_Window, na.rm = TRUE),
+    Max = max(CAR_3_Day_Window, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  mutate(CAR_Window = "3-Day CAR") %>%
+  rename(RD_Group = rd_group_1yr)
+
+# 5-Day CAR Breakdown
+car_5day_breakdown <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_1yr), !is.na(CAR_5_Day_Window)) %>%
+  group_by(rd_group_1yr) %>%
+  summarise(
+    N = sum(!is.na(CAR_5_Day_Window)),
+    Mean = mean(CAR_5_Day_Window, na.rm = TRUE),
+    Mode = mode_func(CAR_5_Day_Window, na.rm = TRUE),
+    Std_Dev = sd(CAR_5_Day_Window, na.rm = TRUE),
+    Min = min(CAR_5_Day_Window, na.rm = TRUE),
+    Max = max(CAR_5_Day_Window, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  mutate(CAR_Window = "5-Day CAR") %>%
+  rename(RD_Group = rd_group_1yr)
+
+# 10-Day CAR Breakdown
+car_10day_breakdown <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_1yr), !is.na(CAR_10_Day_Window)) %>%
+  group_by(rd_group_1yr) %>%
+  summarise(
+    N = sum(!is.na(CAR_10_Day_Window)),
+    Mean = mean(CAR_10_Day_Window, na.rm = TRUE),
+    Mode = mode_func(CAR_10_Day_Window, na.rm = TRUE),
+    Std_Dev = sd(CAR_10_Day_Window, na.rm = TRUE),
+    Min = min(CAR_10_Day_Window, na.rm = TRUE),
+    Max = max(CAR_10_Day_Window, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  mutate(CAR_Window = "10-Day CAR") %>%
+  rename(RD_Group = rd_group_1yr)
+
+# Combine all CAR breakdowns with percentage and rounding
+car_summary <- bind_rows(car_1day_breakdown, car_3day_breakdown, 
+                         car_5day_breakdown, car_10day_breakdown) %>%
+  select(CAR_Window, RD_Group, N, Mean, Mode, Std_Dev, Min, Max) %>%
+  drop_na() %>%  # Remove any rows with NAs that might have slipped through
+  mutate(
+    N_Pct = round((N / total_car_firms) * 100, 3),
+    across(where(is.numeric) & !any_of(c("N", "N_Pct")), ~round(.x, 3))
+  ) %>%
+  select(CAR_Window, RD_Group, N, N_Pct, Mean, Mode, Std_Dev, Min, Max) %>%
+  arrange(CAR_Window, RD_Group)
+
+print(car_summary)
+
+#==============================================================================
+# Table 4- 
+#==============================================
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr) # Needed for pivot_longer()
+
+# Assuming 'final_dataset_cleaned' is your final, merged dataframe
+
+# --- 1. Data Preparation for Multiple CAR Windows ---
+summary_by_decile_all_windows <- final_dataset_cleaned %>%
+  filter(!is.na(rd_intensity_1yr)) %>%
+  group_by(rd_decile = ntile(rd_intensity_1yr, 10)) %>%
+  # Calculate the mean for EACH of the CAR windows
+  summarise(
+    `1 Day Window` = mean(CAR_1_Day_Window, na.rm = TRUE),
+    `3 Day Window` = mean(CAR_3_Day_Window, na.rm = TRUE),
+    `5 Day Window` = mean(CAR_5_Day_Window, na.rm = TRUE),
+    `10 Day Window` = mean(CAR_10_Day_Window, na.rm = TRUE)
+  ) %>%
+  # Pivot the data from wide to long format for plotting
+  pivot_longer(
+    cols = ends_with("Window"),
+    names_to = "CAR_Window",
+    values_to = "mean_car"
+  ) %>%
+  # Ensure the order of the windows is correct in the legend
+  mutate(
+    CAR_Window = factor(CAR_Window, levels = c("1 Day Window", "3 Day Window", "5 Day Window", "10 Day Window"))
+  )
+
+
+# --- 2. Create the Multi-Line Plot ---
+ggplot(summary_by_decile_all_windows, aes(x = rd_decile, y = mean_car, color = CAR_Window, group = CAR_Window)) +
+  # Add the trend lines and points for each CAR window
+  geom_line(size = 1.1) +
+  geom_point(size = 2.5) +
+  
+  # Add a horizontal line at y=0 for reference
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  
+  # Add titles and labels
+  labs(
+    title = "Mean CAR vs. 1-Year R&D Intensity by Event Window",
+    subtitle = "Firms grouped by 1-Year R&D Intensity Deciles",
+    x = "R&D Intensity Decile (1 = Lowest, 10 = Highest)",
+    y = "Mean Cumulative Abnormal Return",
+    color = "CAR Event Window" # This will be the title of the legend
+  ) +
+  
+  # Use a clean theme and ensure all deciles are shown on the x-axis
+  theme_bw(base_size = 14) +
+  scale_x_continuous(breaks = 1:10) +
+  # Use a color-blind friendly palette for the lines
+  scale_color_brewer(palette = "Dark2") +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "bottom"
+  )
