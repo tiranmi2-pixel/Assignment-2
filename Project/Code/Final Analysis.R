@@ -413,3 +413,105 @@ ggplot(summary_by_decile_all_windows, aes(x = rd_decile, y = mean_car, color = C
     plot.subtitle = element_text(hjust = 0.5),
     legend.position = "bottom"
   )
+----------------------
+  # Load required libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Assuming 'final_dataset_cleaned' is your final, merged dataframe
+
+# --- 1. Reshape data for plotting ---
+# We pivot the four CAR columns into a single column to create the facets
+plot_data_all_returns <- final_dataset_cleaned %>%
+  pivot_longer(
+    cols = starts_with("CAR_"),
+    names_to = "CAR_Window",
+    values_to = "CAR_Value"
+  ) %>%
+  # Clean up the window names for better plot labels
+  mutate(
+    CAR_Window = gsub("_", " ", gsub("CAR_|_Window", "", CAR_Window)),
+    CAR_Window = factor(CAR_Window, levels = c("1 Day", "3 Day", "5 Day", "10 Day"))
+  ) %>%
+  # Filter out extreme R&D intensity outliers to make the trend clearer
+  filter(rd_intensity_1yr < quantile(rd_intensity_1yr, 0.99, na.rm = TRUE))
+
+
+# --- 2. Create the faceted scatter plot ---
+ggplot(plot_data_all_returns, aes(x = rd_intensity_1yr, y = CAR_Value)) +
+  # Add points with transparency to handle overplotting
+  geom_point(alpha = 0.2, color = "gray20") +
+  
+  # Add a linear trend line to each plot
+  geom_smooth(method = "lm", se = FALSE, color = "#0072B2") +
+  
+  # Create a separate plot for each CAR window
+  facet_wrap(~CAR_Window, scales = "free_y") +
+  
+  # Add a horizontal line at y=0 for reference
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  
+  # Add titles and labels
+  labs(
+    title = "Cumulative Abnormal Returns vs. 1-Year R&D Intensity",
+    subtitle = "Showing individual layoff events for each CAR window",
+    x = "1-Year R&D Intensity (xrd/sale)",
+    y = "Cumulative Abnormal Return (CAR)"
+  ) +
+  
+  # Apply a clean theme
+  theme_bw(base_size = 14) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  )
+
+#---
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+
+# Assuming 'final_dataset_cleaned' is your final, merged dataframe
+
+# --- 1. PREPARE THE DATA (Includes the fix from before) ---
+# This step ensures the 'rd_group_1yr' column exists before we plot
+plot_data_trends <- final_dataset_cleaned %>%
+  filter(!is.na(rd_intensity_1yr)) %>%
+  mutate(
+    rd_median_1yr = median(rd_intensity_1yr, na.rm = TRUE),
+    rd_group_1yr = ifelse(rd_intensity_1yr >= rd_median_1yr, "High R&D", "Low R&D")
+  ) %>%
+  # Filter out extreme R&D outliers to make the plot less skewed
+  filter(rd_intensity_1yr < quantile(rd_intensity_1yr, 0.99, na.rm = TRUE))
+
+
+# --- 2. Create the plot with two separate trend lines ---
+ggplot(plot_data_trends, aes(x = rd_intensity_1yr, y = CAR_3_Day_Window, color = rd_group_1yr)) +
+  # Add scatter plot points with some transparency
+  geom_point(alpha = 0.3) +
+  
+  # Add two separate linear trend lines (one for each color/group)
+  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+  
+  # Add a horizontal line at y=0 for reference
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  
+  # Add titles and labels
+  labs(
+    title = "Comparative Trend of CAR vs. 1-Year R&D Intensity",
+    subtitle = "Trend lines shown for firms above and below the median R&D intensity",
+    x = "1-Year R&D Intensity (xrd/sale)",
+    y = "Cumulative Abnormal Return (3-Day Window)",
+    color = "R&D Group" # This will be the title of the legend
+  ) +
+  
+  # Use a clean theme and set custom colors for the groups
+  theme_bw(base_size = 14) +
+  scale_color_manual(values = c("High R&D" = "#0072B2", "Low R&D" = "#D55E00")) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "bottom"
+  )
