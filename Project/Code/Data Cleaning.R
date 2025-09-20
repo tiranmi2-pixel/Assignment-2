@@ -1,40 +1,64 @@
+#==============================================================================
+# Data Cleaning: Raw Layoff Announcements
+#
+# Purpose: This script takes the raw layoff data downloaded in the previous
+#          step and cleans it to isolate permanent workforce reductions.
+#          By filtering out temporary events and company closures, we ensure
+#          the sample is appropriate for our research question.
+#==============================================================================
 
-#PART 2 - Filtering the Raw data to get rid of temporary layoffs, permanent closures,small layoffs and blanks
-# Output of this section ,after filtering, will be saved in the processed data folder.
-# output file will only contain workforce reductions, large layoffs and small layoffs.
-
-install.packages("dplyr")
-install.packages("readr")
-install.packages("stringr")
-library(dplyr)
-library(readr)
-library(stringr)
+#==============================================
+# --- 1. Load Essential Libraries ---
+#==============================================
+# These packages provide tools for path management, data import/export,
+# and data manipulation.
 library(here)
+library(readr)
+library(dplyr)
+library(stringr)
 
-# Define the path for the raw data directory.
+#==============================================
+# --- 2. Define File Paths ---
+#==============================================
+# Define relative paths to ensure the script runs smoothly on any machine
+# without needing to manually change directory paths.
 raw_data_path <- here("Project", "Raw Data")
+processed_data_path <- here("Project", "Processed Data")
 
-# Define the full path for the combined CSV file created in the previous step.
-combined_file <- file.path(raw_data_path, "warn_combined.csv")
+# The input file is the output from the 'Data Extract.R' script.
+input_file <- file.path(raw_data_path, "warn_data_2015_2024.csv")
 
-# Read the combined CSV into a data frame, specifying column types as character.
-warn_data_combined <- read_csv(combined_file, col_types = "c")
+# Create the output directory if it doesn't already exist.
+if (!dir.exists(processed_data_path)) {
+  dir.create(processed_data_path, recursive = TRUE)
+}
 
+#==============================================
+# --- 3. Load Raw Data ---
+#==============================================
+# Read the raw CSV file into a data frame. All columns are specified as
+# character type to prevent any data loss or parsing issues.
+raw_warn_data <- read_csv(input_file, col_types = "c")
 
-# This step will filter column G and H ,sequentially to get rid of temporary layoffs that would have distored the results.
-processed_data <- warn_data_combined %>%
-  # First, remove rows where 'Closure / Layoff' contains "Temporary" or "Other".
-  # The `is.na()` check ensures that blank rows are kept.
+#==============================================
+# --- 4. Filter for Relevant Layoff Events ---
+#==============================================
+# The goal is to focus on permanent layoffs. Hence,filter out events that are
+# explicitly marked as "Temporary" or "Other" in the classification columns.
+
+processed_data <- raw_warn_data %>%
+  # First, filter the 'Closure / Layoff' column. We keep permanent layoffs
+  # and any rows where this field is blank (NA).
   filter(is.na(`Closure / Layoff`) | !str_detect(`Closure / Layoff`, "Temporary|Other")) %>%
   
-  # Second, filter the remaining data based on the 'Temporary/Permanent' column.
+  # Next, apply the same logic to the 'Temporary/Permanent' column for an
+  # extra layer of cleaning.
   filter(is.na(`Temporary/Permanent`) | !str_detect(`Temporary/Permanent`, "Temporary|Other"))
 
-
-
-# Define the full path for the processed output file.
-processed_file <- file.path(processed_data_path, "Processed-warn.csv")
-
-# Save the filtered data frame to the new CSV file.
-write_csv(processed_data, processed_file)
-
+#==============================================
+# --- 5. Save Processed Data ---
+#==============================================
+# The cleaned data is saved to a new CSV file in the 'Processed Data' folder.
+# This file will serve as the input for the main analysis script.
+output_file <- file.path(processed_data_path, "Processed-warn.csv")
+write_csv(processed_data, output_file)
