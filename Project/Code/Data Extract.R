@@ -3,7 +3,7 @@
 #
 # Purpose: This script downloads the primary layoff dataset from a public
 #          Google Sheet and saves it locally for further processing. It is
-#          the first step in the data collection pipeline.
+#          the first step in the data collection process of this project.
 #==============================================================================
 
 #==============================================
