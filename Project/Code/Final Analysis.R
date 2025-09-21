@@ -1,556 +1,299 @@
 #==============================================================================
-# Summary Statistics
+# Purpose: Generate all summary tables and plots for the final report.
+# Please note that all outputs of this script gets saved in Output folder as png .
+# If you choose to run the code step by step, then it will save the pngs while displaying the results.
 #==============================================================================
 
 
 #==============================================================================
-# Table 1- Creating a table with CAR against Rd intensity. 
-#=============================================================================
+# Part 1: Setup
+#==============================================================================
 
+# Loads all the packages needed for the script to run.
+library(knitr)
+library(kableExtra)
 library(dplyr)
 library(tidyr)
+library(broom)
+library(ggplot2)
+library(here)
+library(webshot2)
 
-# Summarize for RD intensity 1 year
+# Defines a simple function to find the mode of a set of values.
+mode_func <- function(x, na.rm = TRUE) {
+  if (na.rm) x <- x[!is.na(x)]
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+
+#==============================================================================
+# Part 2: Table 1 - R&D Classification Summary
+#==============================================================================
+# This section creates a table summarizing layoff announcements,
+# unique firms, and total workers for each R&D group.
+
 summary_1yr <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr)) %>%  # Add this line to filter out NAs
-  group_by(rd_group_1yr) %>%
+  filter(!is.na(rd_group_1yr)) %>%
+  group_by(Group = rd_group_1yr) %>%
   summarise(
-    CAR_1_Day_Window = mean(CAR_1_Day_Window, na.rm = TRUE),
-    CAR_3_Day_Window = mean(CAR_3_Day_Window, na.rm = TRUE),
-    CAR_5_Day_Window = mean(CAR_5_Day_Window, na.rm = TRUE),
-    CAR_10_Day_Window = mean(CAR_10_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
+    `Layoff Announcements` = n(),
+    `Number of Unique Firms` = n_distinct(gvkey),
+    `Total Workers Affected` = sum(Number.of.Workers, na.rm = TRUE)
   ) %>%
-  mutate(Period = "RD intensity 1 year") %>%
-  rename(Intensity = rd_group_1yr)
+  mutate(Classification = "1-Year R&D")
 
-# Summarize for RD intensity 3 year
 summary_3yr <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_3yr)) %>%  # Add this line to filter out NAs
-  group_by(rd_group_3yr) %>%
+  filter(!is.na(rd_group_3yr)) %>%
+  group_by(Group = rd_group_3yr) %>%
   summarise(
-    CAR_1_Day_Window = mean(CAR_1_Day_Window, na.rm = TRUE),
-    CAR_3_Day_Window = mean(CAR_3_Day_Window, na.rm = TRUE),
-    CAR_5_Day_Window = mean(CAR_5_Day_Window, na.rm = TRUE),
-    CAR_10_Day_Window = mean(CAR_10_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
+    `Layoff Announcements` = n(),
+    `Number of Unique Firms` = n_distinct(gvkey),
+    `Total Workers Affected` = sum(Number.of.Workers, na.rm = TRUE)
   ) %>%
-  mutate(Period = "RD intensity 3 year") %>%
-  rename(Intensity = rd_group_3yr)
+  mutate(Classification = "3-Year R&D")
 
-# Summarize for RD intensity 5 year
 summary_5yr <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_5yr)) %>%  # Add this line to filter out NAs
-  group_by(rd_group_5yr) %>%
+  filter(!is.na(rd_group_5yr)) %>%
+  group_by(Group = rd_group_5yr) %>%
   summarise(
-    CAR_1_Day_Window = mean(CAR_1_Day_Window, na.rm = TRUE),
-    CAR_3_Day_Window = mean(CAR_3_Day_Window, na.rm = TRUE),
-    CAR_5_Day_Window = mean(CAR_5_Day_Window, na.rm = TRUE),
-    CAR_10_Day_Window = mean(CAR_10_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
+    `Layoff Announcements` = n(),
+    `Number of Unique Firms` = n_distinct(gvkey),
+    `Total Workers Affected` = sum(Number.of.Workers, na.rm = TRUE)
   ) %>%
-  mutate(Period = "RD intensity 5 year") %>%
-  rename(Intensity = rd_group_5yr)
+  mutate(Classification = "5-Year R&D")
 
-# Combine summaries
-summary_table <- bind_rows(summary_1yr, summary_3yr, summary_5yr) %>%
-  select(Period, Intensity, CAR_1_Day_Window, CAR_3_Day_Window, CAR_5_Day_Window, CAR_10_Day_Window)
+final_summary_data <- bind_rows(summary_1yr, summary_3yr, summary_5yr) %>%
+  select(Classification, everything())
 
-print(summary_table)
+professional_table_1 <- final_summary_data %>%
+  kbl(
+    caption = "Table 1: Summary Statistics by R&D Classification",
+    booktabs = TRUE,
+    col.names = c("Classification", "R&D Group", "Layoff Announcements", "Unique Firms", "Total Workers"),
+    format.args = list(big.mark = ",")
+  ) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  pack_rows(index = table(final_summary_data$Classification)) %>%
+  footnote(general = "Data sourced from final_dataset_cleaned dataframe.")
+
+output_folder <- here("Project", "Output")
+dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
+
+print(professional_table_1)
+
+save_kable(
+  professional_table_1,
+  file = here(output_folder, "Table_1_Summary_Statistics_by_RD_Classification.png")
+)
+
 
 #==============================================================================
-# Table 2- Create summary stat tables seperately for CAR and RD
-#=============================================================================
-
-# Load required libraries
-library(dplyr)
-library(tidyr)
-# Define mode function
-mode_func <- function(x, na.rm = TRUE) {
-  if (na.rm) x <- x[!is.na(x)]
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
-
-# 1-Year R&D Intensity Group Breakdown
-rd_1yr_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(rd_intensity_1yr)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(rd_intensity_1yr)),  # More explicit NA counting
-    Mean = mean(rd_intensity_1yr, na.rm = TRUE),
-    Mode = mode_func(rd_intensity_1yr, na.rm = TRUE),
-    Std_Dev = sd(rd_intensity_1yr, na.rm = TRUE),
-    Min = min(rd_intensity_1yr, na.rm = TRUE),
-    Max = max(rd_intensity_1yr, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(RD_Measure = "1-Year R&D Intensity") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# 3-Year R&D Intensity Group Breakdown
-rd_3yr_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_3yr), !is.na(rd_intensity_3yr)) %>%
-  group_by(rd_group_3yr) %>%
-  summarise(
-    N = sum(!is.na(rd_intensity_3yr)),
-    Mean = mean(rd_intensity_3yr, na.rm = TRUE),
-    Mode = mode_func(rd_intensity_3yr, na.rm = TRUE),
-    Std_Dev = sd(rd_intensity_3yr, na.rm = TRUE),
-    Min = min(rd_intensity_3yr, na.rm = TRUE),
-    Max = max(rd_intensity_3yr, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(RD_Measure = "3-Year R&D Intensity") %>%
-  rename(RD_Group = rd_group_3yr)
-
-# 5-Year R&D Intensity Group Breakdown
-rd_5yr_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_5yr), !is.na(rd_intensity_5yr)) %>%
-  group_by(rd_group_5yr) %>%
-  summarise(
-    N = sum(!is.na(rd_intensity_5yr)),
-    Mean = mean(rd_intensity_5yr, na.rm = TRUE),
-    Mode = mode_func(rd_intensity_5yr, na.rm = TRUE),
-    Std_Dev = sd(rd_intensity_5yr, na.rm = TRUE),
-    Min = min(rd_intensity_5yr, na.rm = TRUE),
-    Max = max(rd_intensity_5yr, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(RD_Measure = "5-Year R&D Intensity") %>%
-  rename(RD_Group = rd_group_5yr)
-
-# Combine all breakdowns with additional NA safeguards
-rd_group_summary <- bind_rows(rd_1yr_breakdown, rd_3yr_breakdown, rd_5yr_breakdown) %>%
-  select(RD_Measure, RD_Group, N, Mean, Mode, Std_Dev, Min, Max) %>%
-  drop_na() %>%  # Remove any rows with NAs that might have slipped through
-  mutate(across(where(is.numeric) & !N, ~round(.x, 4)))
-
-print(rd_group_summary)
-
-
-# Summary Stat table for CAR.
-#====================================
-# Load required libraries
-library(dplyr)
-library(tidyr)
-
-# Define mode function
-mode_func <- function(x, na.rm = TRUE) {
-  if (na.rm) x <- x[!is.na(x)]
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
-
-# CAR 1-Day Window Breakdown by R&D Groups
-car_1day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_1_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_1_Day_Window)),
-    Mean = mean(CAR_1_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_1_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_1_Day_Window, na.rm = TRUE),
-    Min = min(CAR_1_Day_Window, na.rm = TRUE),
-    Max = max(CAR_1_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "1-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# CAR 3-Day Window Breakdown by R&D Groups
-car_3day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_3_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_3_Day_Window)),
-    Mean = mean(CAR_3_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_3_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_3_Day_Window, na.rm = TRUE),
-    Min = min(CAR_3_Day_Window, na.rm = TRUE),
-    Max = max(CAR_3_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "3-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# CAR 5-Day Window Breakdown by R&D Groups
-car_5day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_5_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_5_Day_Window)),
-    Mean = mean(CAR_5_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_5_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_5_Day_Window, na.rm = TRUE),
-    Min = min(CAR_5_Day_Window, na.rm = TRUE),
-    Max = max(CAR_5_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "5-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# CAR 10-Day Window Breakdown by R&D Groups
-car_10day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_10_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_10_Day_Window)),
-    Mean = mean(CAR_10_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_10_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_10_Day_Window, na.rm = TRUE),
-    Min = min(CAR_10_Day_Window, na.rm = TRUE),
-    Max = max(CAR_10_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "10-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# Combine all CAR breakdowns
-car_summary <- bind_rows(car_1day_breakdown, car_3day_breakdown, car_5day_breakdown, car_10day_breakdown) %>%
-  select(CAR_Window, RD_Group, N, Mean, Mode, Std_Dev, Min, Max) %>%
-  drop_na() %>%  # Remove any rows with NAs
-  mutate(across(where(is.numeric) & !N, ~round(.x, 4)))
-
-print(car_summary)
-
+# Part 3: Table 2 - CAR Summary Statistics
 #==============================================================================
-# Table 3- Create industry wise RD Intensity
-#=============================================================================
-# Load required libraries
-library(dplyr)
-library(tidyr)
+# This section creates a table with detailed statistics for CARs,
+# broken down by R&D group and event window.
 
-# Define mode function
-mode_func <- function(x, na.rm = TRUE) {
-  if (na.rm) x <- x[!is.na(x)]
-  if (length(x) == 0) return(NA)
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
-
-# Calculate total firms for percentage calculation
-total_firms <- final_dataset_with_industry %>%
-  filter(!is.na(industry_name)) %>%
-  nrow()
-
-# Industry summary with percentage only for N column
-industry_summary_final <- final_dataset_with_industry %>%
-  filter(!is.na(industry_name)) %>%
-  group_by(industry_name) %>%
-  summarise(
-    N = sum(!is.na(rd_intensity_1yr)),
-    Mean = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
-                  mean(rd_intensity_1yr, na.rm = TRUE), NA),
-    Mode = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
-                  mode_func(rd_intensity_1yr, na.rm = TRUE), NA),
-    Std_Dev = ifelse(sum(!is.na(rd_intensity_1yr)) > 1, 
-                     sd(rd_intensity_1yr, na.rm = TRUE), NA),
-    Min = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
-                 min(rd_intensity_1yr, na.rm = TRUE), NA),
-    Max = ifelse(sum(!is.na(rd_intensity_1yr)) > 0, 
-                 max(rd_intensity_1yr, na.rm = TRUE), NA),
-    .groups = 'drop'
-  ) %>%
-  # Add percentage column for N only and round statistics to 3 decimal places
-  mutate(
-    N_Pct = round((N / total_firms) * 100, 3),
-    Mean = round(Mean, 3),
-    Mode = round(Mode, 3),
-    Std_Dev = round(Std_Dev, 3),
-    Min = round(Min, 3),
-    Max = round(Max, 3)
-  ) %>%
-  # Reorder columns: N, N_Pct, then statistics
-  select(industry_name, N, N_Pct, Mean, Mode, Std_Dev, Min, Max) %>%
-  arrange(desc(N))
-
-print(industry_summary_final)
-
-
-
-# Calculate total firms for percentage calculation
-total_car_firms <- final_dataset_cleaned %>%
-  filter(!is.na(CAR_1_Day_Window)) %>%
-  nrow()
-
-# 1-Day CAR Breakdown
-car_1day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_1_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_1_Day_Window)),
-    Mean = mean(CAR_1_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_1_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_1_Day_Window, na.rm = TRUE),
-    Min = min(CAR_1_Day_Window, na.rm = TRUE),
-    Max = max(CAR_1_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "1-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# 3-Day CAR Breakdown
-car_3day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_3_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_3_Day_Window)),
-    Mean = mean(CAR_3_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_3_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_3_Day_Window, na.rm = TRUE),
-    Min = min(CAR_3_Day_Window, na.rm = TRUE),
-    Max = max(CAR_3_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "3-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# 5-Day CAR Breakdown
-car_5day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_5_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_5_Day_Window)),
-    Mean = mean(CAR_5_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_5_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_5_Day_Window, na.rm = TRUE),
-    Min = min(CAR_5_Day_Window, na.rm = TRUE),
-    Max = max(CAR_5_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "5-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# 10-Day CAR Breakdown
-car_10day_breakdown <- final_dataset_cleaned %>%
-  filter(!is.na(rd_group_1yr), !is.na(CAR_10_Day_Window)) %>%
-  group_by(rd_group_1yr) %>%
-  summarise(
-    N = sum(!is.na(CAR_10_Day_Window)),
-    Mean = mean(CAR_10_Day_Window, na.rm = TRUE),
-    Mode = mode_func(CAR_10_Day_Window, na.rm = TRUE),
-    Std_Dev = sd(CAR_10_Day_Window, na.rm = TRUE),
-    Min = min(CAR_10_Day_Window, na.rm = TRUE),
-    Max = max(CAR_10_Day_Window, na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  mutate(CAR_Window = "10-Day CAR") %>%
-  rename(RD_Group = rd_group_1yr)
-
-# Combine all CAR breakdowns with percentage and rounding
-car_summary <- bind_rows(car_1day_breakdown, car_3day_breakdown, 
-                         car_5day_breakdown, car_10day_breakdown) %>%
-  select(CAR_Window, RD_Group, N, Mean, Mode, Std_Dev, Min, Max) %>%
-  drop_na() %>%  # Remove any rows with NAs that might have slipped through
-  mutate(
-    N_Pct = round((N / total_car_firms) * 100, 3),
-    across(where(is.numeric) & !any_of(c("N", "N_Pct")), ~round(.x, 3))
-  ) %>%
-  select(CAR_Window, RD_Group, N, N_Pct, Mean, Mode, Std_Dev, Min, Max) %>%
-  arrange(CAR_Window, RD_Group)
-
-print(car_summary)
-
-#==============================================================================
-# Table 4- 
-#==============================================
-# Load required libraries
-library(ggplot2)
-library(dplyr)
-library(tidyr) # Needed for pivot_longer()
-
-# Assuming 'final_dataset_cleaned' is your final, merged dataframe
-
-# --- 1. Data Preparation for Multiple CAR Windows ---
-summary_by_decile_all_windows <- final_dataset_cleaned %>%
-  filter(!is.na(rd_intensity_1yr)) %>%
-  group_by(rd_decile = ntile(rd_intensity_1yr, 10)) %>%
-  # Calculate the mean for EACH of the CAR windows
-  summarise(
-    `1 Day Window` = mean(CAR_1_Day_Window, na.rm = TRUE),
-    `3 Day Window` = mean(CAR_3_Day_Window, na.rm = TRUE),
-    `5 Day Window` = mean(CAR_5_Day_Window, na.rm = TRUE),
-    `10 Day Window` = mean(CAR_10_Day_Window, na.rm = TRUE)
-  ) %>%
-  # Pivot the data from wide to long format for plotting
+car_summary <- final_dataset_cleaned %>%
+  select(rd_group_1yr, starts_with("CAR_")) %>%
   pivot_longer(
-    cols = ends_with("Window"),
-    names_to = "CAR_Window",
-    values_to = "mean_car"
-  ) %>%
-  # Ensure the order of the windows is correct in the legend
-  mutate(
-    CAR_Window = factor(CAR_Window, levels = c("1 Day Window", "3 Day Window", "5 Day Window", "10 Day Window"))
-  )
-
-
-# --- 2. Create the Multi-Line Plot ---
-ggplot(summary_by_decile_all_windows, aes(x = rd_decile, y = mean_car, color = CAR_Window, group = CAR_Window)) +
-  # Add the trend lines and points for each CAR window
-  geom_line(size = 1.1) +
-  geom_point(size = 2.5) +
-  
-  # Add a horizontal line at y=0 for reference
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
-  
-  # Add titles and labels
-  labs(
-    title = "Mean CAR vs. 1-Year R&D Intensity by Event Window",
-    subtitle = "Firms grouped by 1-Year R&D Intensity Deciles",
-    x = "R&D Intensity Decile (1 = Lowest, 10 = Highest)",
-    y = "Mean Cumulative Abnormal Return",
-    color = "CAR Event Window" # This will be the title of the legend
-  ) +
-  
-  # Use a clean theme and ensure all deciles are shown on the x-axis
-  theme_bw(base_size = 14) +
-  scale_x_continuous(breaks = 1:10) +
-  # Use a color-blind friendly palette for the lines
-  scale_color_brewer(palette = "Dark2") +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5),
-    legend.position = "bottom"
-  )
-----------------------
-  # Load required libraries
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
-# Assuming 'final_dataset_cleaned' is your final, merged dataframe
-
-# --- 1. Reshape data for plotting ---
-# We pivot the four CAR columns into a single column to create the facets
-plot_data_all_returns <- final_dataset_cleaned %>%
-  pivot_longer(
-    cols = starts_with("CAR_"),
+    cols = -rd_group_1yr,
     names_to = "CAR_Window",
     values_to = "CAR_Value"
   ) %>%
-  # Clean up the window names for better plot labels
-  mutate(
-    CAR_Window = gsub("_", " ", gsub("CAR_|_Window", "", CAR_Window)),
-    CAR_Window = factor(CAR_Window, levels = c("1 Day", "3 Day", "5 Day", "10 Day"))
+  filter(!is.na(rd_group_1yr) & !is.na(CAR_Value)) %>%
+  group_by(CAR_Window, RD_Group = rd_group_1yr) %>%
+  summarise(
+    N = n(),
+    Mean = mean(CAR_Value, na.rm = TRUE),
+    Mode = mode_func(CAR_Value, na.rm = TRUE),
+    Std_Dev = sd(CAR_Value, na.rm = TRUE),
+    Min = min(CAR_Value, na.rm = TRUE),
+    Max = max(CAR_Value, na.rm = TRUE),
+    .groups = 'drop'
   ) %>%
-  # Filter out extreme R&D intensity outliers to make the trend clearer
-  filter(rd_intensity_1yr < quantile(rd_intensity_1yr, 0.99, na.rm = TRUE))
+  mutate(CAR_Window = case_when(
+    CAR_Window == "CAR_1_Day_Window"  ~ "1-Day CAR [-1, +1]",
+    CAR_Window == "CAR_3_Day_Window"  ~ "3-Day CAR [-3, +3]",
+    CAR_Window == "CAR_5_Day_Window"  ~ "5-Day CAR [-5, +5]",
+    CAR_Window == "CAR_10_Day_Window" ~ "10-Day CAR [-10, +10]"
+  )) %>%
+  arrange(CAR_Window, RD_Group) %>%
+  select(CAR_Window, RD_Group, N, Mean, Mode, Std_Dev, Min, Max)
+
+professional_table_2 <- car_summary %>%
+  mutate(across(where(is.numeric) & !N, ~round(.x, 4))) %>%
+  kbl(
+    caption = "Table 2: Summary Statistics for CARs by R&D Group",
+    booktabs = TRUE,
+    align = "llrrrrrr"
+  ) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  pack_rows(index = table(car_summary$CAR_Window))
+
+print(professional_table_2)
+
+save_kable(
+  professional_table_2,
+  file = here(output_folder, "Table_2_Summary_Statistics_for_CARs_by_RD_Group.png")
+)
 
 
-# --- 2. Create the faceted scatter plot ---
-ggplot(plot_data_all_returns, aes(x = rd_intensity_1yr, y = CAR_Value)) +
-  # Add points with transparency to handle overplotting
-  geom_point(alpha = 0.2, color = "gray20") +
-  
-  # Add a linear trend line to each plot
-  geom_smooth(method = "lm", se = FALSE, color = "#0072B2") +
-  
-  # Create a separate plot for each CAR window
-  facet_wrap(~CAR_Window, scales = "free_y") +
-  
-  # Add a horizontal line at y=0 for reference
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  
-  # Add titles and labels
-  labs(
-    title = "Cumulative Abnormal Returns vs. 1-Year R&D Intensity",
-    subtitle = "Showing individual layoff events for each CAR window",
-    x = "1-Year R&D Intensity (xrd/sale)",
-    y = "Cumulative Abnormal Return (CAR)"
-  ) +
-  
-  # Apply a clean theme
-  theme_bw(base_size = 14) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5)
+#==============================================================================
+# Part 4: Table 3 - Mean CARs by R&D Classification (Wide Format)
+#==============================================================================
+# This section creates the wide-format summary of mean CARs
+# across all R&D classifications and event windows.
+
+summary_1yr_wide <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_1yr)) %>%
+  group_by(`R&D Group` = rd_group_1yr) %>%
+  summarise(
+    `Mean CAR [-1, +1]` = mean(CAR_1_Day_Window, na.rm = TRUE),
+    `Mean CAR [-3, +3]` = mean(CAR_3_Day_Window, na.rm = TRUE),
+    `Mean CAR [-5, +5]` = mean(CAR_5_Day_Window, na.rm = TRUE),
+    `Mean CAR [-10, +10]` = mean(CAR_10_Day_Window, na.rm = TRUE)
+  ) %>%
+  mutate(Classification = "1-Year R&D")
+
+summary_3yr_wide <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_3yr)) %>%
+  group_by(`R&D Group` = rd_group_3yr) %>%
+  summarise(
+    `Mean CAR [-1, +1]` = mean(CAR_1_Day_Window, na.rm = TRUE),
+    `Mean CAR [-3, +3]` = mean(CAR_3_Day_Window, na.rm = TRUE),
+    `Mean CAR [-5, +5]` = mean(CAR_5_Day_Window, na.rm = TRUE),
+    `Mean CAR [-10, +10]` = mean(CAR_10_Day_Window, na.rm = TRUE)
+  ) %>%
+  mutate(Classification = "3-Year R&D")
+
+summary_5yr_wide <- final_dataset_cleaned %>%
+  filter(!is.na(rd_group_5yr)) %>%
+  group_by(`R&D Group` = rd_group_5yr) %>%
+  summarise(
+    `Mean CAR [-1, +1]` = mean(CAR_1_Day_Window, na.rm = TRUE),
+    `Mean CAR [-3, +3]` = mean(CAR_3_Day_Window, na.rm = TRUE),
+    `Mean CAR [-5, +5]` = mean(CAR_5_Day_Window, na.rm = TRUE),
+    `Mean CAR [-10, +10]` = mean(CAR_10_Day_Window, na.rm = TRUE)
+  ) %>%
+  mutate(Classification = "5-Year R&D")
+
+car_summary_combined <- bind_rows(summary_1yr_wide, summary_3yr_wide, summary_5yr_wide) %>%
+  select(Classification, `R&D Group`, everything())
+
+professional_table_3 <- car_summary_combined %>%
+  kbl(
+    caption = "Table 3: Mean CARs by R&D Classification and Event Window",
+    booktabs = TRUE,
+    align = "llcccc",
+    digits = 4
+  ) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  pack_rows(index = table(car_summary_combined$Classification))
+
+print(professional_table_3)
+
+save_kable(
+  professional_table_3,
+  file = here(output_folder, "Table_3_Mean_CARs_by_RD_Classification_and_Event_Window.png")
+)
+
+
+#==============================================================================
+# Part 5: Table 4 - Hypothesis Test Results
+#==============================================================================
+# This section runs the t-tests and presents the results in a formatted table.
+
+tidy_for_testing <- final_dataset_cleaned %>%
+  pivot_longer(cols = starts_with("CAR_"), names_to = "Event_Window", values_to = "CAR_Value") %>%
+  pivot_longer(cols = starts_with("rd_group_"), names_to = "Classification", values_to = "RD_Group") %>%
+  mutate(
+    Event_Window = case_when(
+      Event_Window == "CAR_1_Day_Window"  ~ "[-1, +1]",
+      Event_Window == "CAR_3_Day_Window"  ~ "[-3, +3]",
+      Event_Window == "CAR_5_Day_Window"  ~ "[-5, +5]",
+      Event_Window == "CAR_10_Day_Window" ~ "[-10, +10]"
+    ),
+    Classification = case_when(
+      Classification == "rd_group_1yr" ~ "1-Year R&D",
+      Classification == "rd_group_3yr" ~ "3-Year R&D",
+      Classification == "rd_group_5yr" ~ "5-Year R&D"
+    )
   )
 
-#---
-# Load required libraries
-library(ggplot2)
-library(dplyr)
-
-# Assuming 'final_dataset_cleaned' is your final, merged dataframe
-
-# --- 1. PREPARE THE DATA (Includes the fix from before) ---
-# This step ensures the 'rd_group_1yr' column exists before we plot
-plot_data_trends <- final_dataset_cleaned %>%
-  filter(!is.na(rd_intensity_1yr)) %>%
-  mutate(
-    rd_median_1yr = median(rd_intensity_1yr, na.rm = TRUE),
-    rd_group_1yr = ifelse(rd_intensity_1yr >= rd_median_1yr, "High R&D", "Low R&D")
+ttest_results <- tidy_for_testing %>%
+  filter(!is.na(CAR_Value) & !is.na(RD_Group)) %>%
+  group_by(Classification, Event_Window) %>%
+  summarise(test_output = list(broom::tidy(t.test(CAR_Value ~ RD_Group))), .groups = "drop") %>%
+  unnest(test_output) %>%
+  select(
+    Classification, Event_Window,
+    `Mean CAR (High R&D)` = estimate1, `Mean CAR (Low R&D)` = estimate2,
+    Difference = estimate, `t-statistic` = statistic, `p-value` = p.value
   ) %>%
-  # Filter out extreme R&D outliers to make the plot less skewed
-  filter(rd_intensity_1yr < quantile(rd_intensity_1yr, 0.99, na.rm = TRUE))
+  arrange(Classification, factor(Event_Window, levels = c("[-1, +1]", "[-3, +3]", "[-5, +5]", "[-10, +10]")))
+
+results_formatted_df <- ttest_results %>%
+  mutate(
+    across(c(`Mean CAR (High R&D)`:`t-statistic`), ~ sprintf("%.4f", .)),
+    `p-value` = case_when(
+      `p-value` < 0.01  ~ paste0(sprintf("%.4f", `p-value`), "**"),
+      `p-value` < 0.05  ~ paste0(sprintf("%.4f", `p-value`), "*"),
+      TRUE              ~ sprintf("%.4f", `p-value`)
+    )
+  )
+
+professional_table_4 <- results_formatted_df %>%
+  kbl(
+    caption = "Table 4: T-Test for Difference in Mean CARs",
+    booktabs = TRUE,
+    align = "llrrrrr"
+  ) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  pack_rows(index = table(ttest_results$Classification)) %>%
+  footnote(general = "Significance levels: * p < 0.05, ** p < 0.01")
+
+print(professional_table_4)
+
+save_kable(
+  professional_table_4,
+  file = here(output_folder, "Table_4_T-Test_for_Difference_in_Mean_CARs.png")
+)
 
 
-# --- 2. Create the plot with two separate trend lines ---
-ggplot(plot_data_trends, aes(x = rd_intensity_1yr, y = CAR_3_Day_Window, color = rd_group_1yr)) +
-  # Add scatter plot points with some transparency
-  geom_point(alpha = 0.3) +
-  
-  # Add two separate linear trend lines (one for each color/group)
-  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
-  
-  # Add a horizontal line at y=0 for reference
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-  
-  # Add titles and labels
+#==============================================================================
+# Part 6: Figure 1 - Grouped Bar Chart
+#==============================================================================
+# This section creates a bar chart to visualize the mean CARs.
+
+plot_data_bars <- car_summary_combined %>%
+  filter(Classification == "1-Year R&D") %>%
+  select(-Classification) %>%
+  pivot_longer(
+    cols = -`R&D Group`,
+    names_to = "Event_Window",
+    values_to = "Mean_CAR"
+  )
+
+figure_1_bar_chart <- ggplot(plot_data_bars, aes(x = Event_Window, y = Mean_CAR, fill = `R&D Group`)) +
+  geom_col(position = "dodge") +
+  geom_hline(yintercept = 0, color = "black") +
+  ggtitle("Figure 1: Mean CAR by R&D Group and Event Window") +
   labs(
-    title = "Comparative Trend of CAR vs. 1-Year R&D Intensity",
-    subtitle = "Trend lines shown for firms above and below the median R&D intensity",
-    x = "1-Year R&D Intensity (xrd/sale)",
-    y = "Cumulative Abnormal Return (3-Day Window)",
-    color = "R&D Group" # This will be the title of the legend
+    x = "Event Window",
+    y = "Mean Cumulative Abnormal Return",
+    fill = "R&D Group (1-Year)"
   ) +
-  
-  # Use a clean theme and set custom colors for the groups
-  theme_bw(base_size = 14) +
-  scale_color_manual(values = c("High R&D" = "#0072B2", "Low R&D" = "#D55E00")) +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5),
-    legend.position = "bottom"
-    
-    #==============================================================================
-    # Hypothesis Testing: T-Test for Mean CAR Comparison
-    #
-    # Purpose: This script formally tests the research hypothesis by comparing the
-    #          mean Cumulative Abnormal Return (CAR) between firms with high and
-    #          low R&D intensity. An independent two-sample t-test is performed
-    #          for each of the calculated CAR windows.
-    #==============================================================================
-    
-    
-    # --- 1. Load Libraries and Data ---
-    # It is assumed that your final, merged dataset 'final_dataset_cleaned'
-    # is already loaded into your R environment.
-    library(dplyr)
-    
-    
-    # --- 2. Perform T-Test for Each CAR Window ---
-    # The following code runs a t-test for each event window.
-    # The key output to look for is the 'p-value'.
-    
-    # T-Test for the 1-Day Window
-    cat("--- T-Test Results for CAR (-1, +1) ---\n")
-    t_test_1_day <- t.test(CAR_1_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
-    print(t_test_1_day)
-    
-    # T-Test for the 3-Day Window
-    cat("\n--- T-Test Results for CAR (-3, +3) ---\n")
-    t_test_3_day <- t.test(CAR_3_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
-    print(t_test_3_day)
-    
-    # T-Test for the 5-Day Window
-    cat("\n--- T-Test Results for CAR (-5, +5) ---\n")
-    t_test_5_day <- t.test(CAR_5_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
-    print(t_test_5_day)
-    
-    # T-Test for the 10-Day Window
-    cat("\n--- T-Test Results for CAR (-10, +10) ---\n")
-    t_test_10_day <- t.test(CAR_10_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
-    print(t_test_10_day)
+  theme_bw() +
+  scale_fill_manual(values = c("High R&D" = "#D55E00", "Low R&D" = "#0072B2"))
+
+print(figure_1_bar_chart)
+
+ggsave(
+  filename = here(output_folder, "Figure_1_Mean_CAR_by_RD_Group_and_Event_Window.png"),
+  plot = figure_1_bar_chart,
+  width = 10,
+  height = 6,
+  dpi = 300,
+  bg = "white"
+)
