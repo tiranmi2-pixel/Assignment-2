@@ -514,4 +514,43 @@ ggplot(plot_data_trends, aes(x = rd_intensity_1yr, y = CAR_3_Day_Window, color =
     plot.title = element_text(hjust = 0.5, face = "bold"),
     plot.subtitle = element_text(hjust = 0.5),
     legend.position = "bottom"
-  )
+    
+    #==============================================================================
+    # Hypothesis Testing: T-Test for Mean CAR Comparison
+    #
+    # Purpose: This script formally tests the research hypothesis by comparing the
+    #          mean Cumulative Abnormal Return (CAR) between firms with high and
+    #          low R&D intensity. An independent two-sample t-test is performed
+    #          for each of the calculated CAR windows.
+    #==============================================================================
+    
+    
+    # --- 1. Load Libraries and Data ---
+    # It is assumed that your final, merged dataset 'final_dataset_cleaned'
+    # is already loaded into your R environment.
+    library(dplyr)
+    
+    
+    # --- 2. Perform T-Test for Each CAR Window ---
+    # The following code runs a t-test for each event window.
+    # The key output to look for is the 'p-value'.
+    
+    # T-Test for the 1-Day Window
+    cat("--- T-Test Results for CAR (-1, +1) ---\n")
+    t_test_1_day <- t.test(CAR_1_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
+    print(t_test_1_day)
+    
+    # T-Test for the 3-Day Window
+    cat("\n--- T-Test Results for CAR (-3, +3) ---\n")
+    t_test_3_day <- t.test(CAR_3_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
+    print(t_test_3_day)
+    
+    # T-Test for the 5-Day Window
+    cat("\n--- T-Test Results for CAR (-5, +5) ---\n")
+    t_test_5_day <- t.test(CAR_5_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
+    print(t_test_5_day)
+    
+    # T-Test for the 10-Day Window
+    cat("\n--- T-Test Results for CAR (-10, +10) ---\n")
+    t_test_10_day <- t.test(CAR_10_Day_Window ~ rd_group_1yr, data = final_dataset_cleaned)
+    print(t_test_10_day)
