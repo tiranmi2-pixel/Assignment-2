@@ -43,7 +43,7 @@ raw_warn_data <- read_csv(input_file, col_types = "c")
 #==============================================
 # --- 4. Filter for Relevant Layoff Events ---
 #==============================================
-# The goal is to focus on permanent layoffs. Hence,filter out events that are
+# The focus is on permanent layoffs. Hence,filter out events that are
 # explicitly marked as "Temporary" or "Other" in the classification columns.
 
 processed_data <- raw_warn_data %>%
