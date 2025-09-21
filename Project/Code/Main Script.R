@@ -26,11 +26,11 @@ library(zoo)
 # A connection to the WRDS PostgreSQL database is established.
 # This requires valid user credentials.
 wrds <- dbConnect(Postgres(),
-                  host = 'wrds-pgdata.wharton.upenn.edu',
-                  port = 9737,
-                  dbname = 'wrds',
-                  sslmode = 'require',
-                  user = 'tiran') # Replace with your username
+#                  host = 'wrds-pgdata.wharton.upenn.edu',
+#                  port = 9737,
+#                 dbname = 'wrds',
+#                  sslmode = 'require',
+#                  user = 'tiran') # Replace with your username
 
 
 #==============================================================================
