@@ -11,7 +11,7 @@
 
 
 # Load Libraries and Establish Database Connection ---
-# A comprehensive set of libraries is loaded for database interaction,
+# A  set of libraries is loaded for database interaction,
 # data manipulation, string matching, and date handling.
 library(RPostgres)
 library(tidyverse)
@@ -162,7 +162,7 @@ final_with_permno <- inner_join(
 # for calculating 5-year rolling averages.
 compustat_funda <- tbl(wrds, sql("SELECT gvkey, fyear, datadate, xrd, sale
                                   FROM comp.funda
-                                  WHERE fyear >= 2010 AND fyear <= 2024
+                                  WHERE fyear >= 2005 AND fyear <= 2024
                                   AND datafmt = 'STD' AND consol = 'C'")) %>%
   collect() %>%
   filter(!is.na(xrd), !is.na(sale), sale > 0)
@@ -201,12 +201,25 @@ layoff_with_rd <- final_with_permno %>%
 # the median R&D intensity. This binary classification is essential for the
 # subsequent hypothesis testing.
 layoff_final <- layoff_with_rd %>%
-  filter(!is.na(rd_intensity_1yr)) %>%
+  # Ensure we have valid data for all three metrics before classifying
+  filter(
+    !is.na(rd_intensity_1yr),
+    !is.na(rd_intensity_3yr),
+    !is.na(rd_intensity_5yr)
+  ) %>%
   mutate(
+    # -- 1-Year R&D Group --
     rd_median_1yr = median(rd_intensity_1yr, na.rm = TRUE),
-    rd_group_1yr = ifelse(rd_intensity_1yr >= rd_median_1yr, "High R&D", "Low R&D")
+    rd_group_1yr  = ifelse(rd_intensity_1yr >= rd_median_1yr, "High R&D", "Low R&D"),
+    
+    # -- 3-Year R&D Group --
+    rd_median_3yr = median(rd_intensity_3yr, na.rm = TRUE),
+    rd_group_3yr  = ifelse(rd_intensity_3yr >= rd_median_3yr, "High R&D", "Low R&D"),
+    
+    # -- 5-Year R&D Group --
+    rd_median_5yr = median(rd_intensity_5yr, na.rm = TRUE),
+    rd_group_5yr  = ifelse(rd_intensity_5yr >= rd_median_5yr, "High R&D", "Low R&D")
   )
-
 
 #==============================================================================
 # Part IV: Prepare File for WRDS Event Study
