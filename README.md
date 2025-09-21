@@ -67,6 +67,12 @@ Follow these steps to replicate the analysis.
 1.  **Install Packages**: Before you begin, run the `Master Replication Script.R`. This script will check for all the R packages needed for the project and automatically install any that are missing.
 2.  **Connect to WRDS**: The analysis requires a connection to the Wharton Research Data Services database. Make sure you have valid credentials and have logged in before proceeding to the main scripts.
 
+
+ The connection to wrds is require from Step three onwards. The "Main.Script.R" contain a code block to login to wrds as shown in the below image.Uncomment code block and use your own username.
+ 
+<img width="793" height="301" alt="image" src="https://github.com/user-attachments/assets/bceccd62-222c-4189-846b-c2e67567fe51" />
+
+
 #### Replication Steps
 The R scripts in the `/Code/` folder should be run in numerical order as stated below.
 
