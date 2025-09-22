@@ -1,7 +1,8 @@
 #==============================================================================
 # Purpose: Generate all summary tables and plots for the final report.
 # Please note that all outputs of this script gets saved in Output folder as png .
-# If you choose to run the code step by step, then it will save the pngs while displaying the results.
+# If you choose to run the code step by step, then it will save the pngs in output folder and also dispaly results in the viewer.
+# File names of the output files are inline with the title of the table or chart reported in the research report.
 #==============================================================================
 
 
